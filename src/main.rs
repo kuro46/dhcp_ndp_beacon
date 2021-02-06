@@ -28,7 +28,7 @@ async fn index() -> impl Responder {
     for lease in leases.values() {
         response.insert(lease.mac_address.to_string(), MergedEntry {
             dhcp_lease: Some(lease.clone()),
-            ndp_entry: Vec::new(),
+            ndp_entries: Vec::new(),
         });
     }
     // Inset ndp entries
@@ -36,17 +36,17 @@ async fn index() -> impl Responder {
         response
             .entry(entry.mac_address.to_string())
             .or_insert_with(|| MergedEntry {
-                ndp_entry: Vec::new(),
+                ndp_entries: Vec::new(),
                 dhcp_lease: None,
             })
-            .ndp_entry.push(entry.clone());
+            .ndp_entries.push(entry.clone());
     }
     HttpResponse::Ok().json(response)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MergedEntry {
-    ndp_entry: Vec<NdpEntry>,
+    ndp_entries: Vec<NdpEntry>,
     dhcp_lease: Option<DhcpLease>,
 }
 
