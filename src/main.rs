@@ -101,15 +101,15 @@ async fn retrieve_ndp_entries() -> Vec<NdpEntry> {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct DhcpLease {
     mac_address: String,
-    ipv4_address: Ipv4Addr,
-    end: String,
-    host_name: Option<String>,
+    ip_address: Ipv4Addr,
+    expire_at: String,
+    hostname: Option<String>,
 }
 
 impl DhcpLease {
     fn is_available(&self) -> bool {
-        let end = NaiveDateTime::parse_from_str(&self.end, "%Y/%m/%d %H:%M:%S").unwrap();
-        end.timestamp() > Utc::now().timestamp()
+        let expire_at = NaiveDateTime::parse_from_str(&self.expire_at, "%Y/%m/%d %H:%M:%S").unwrap();
+        expire_at.timestamp() > Utc::now().timestamp()
     }
 }
 
@@ -123,20 +123,65 @@ impl FromStr for DhcpLease {
         let mac_address_regex = Regex::new(r"hardware ethernet (.*?);").unwrap();
         let host_regex = Regex::new("client-hostname \"(.*?)\";").unwrap();
 
-        let ipv4_address =
+        let ip_address =
             Ipv4Addr::from_str(
                 &address_regex.captures_iter(&value).next().unwrap()[1]
             ).unwrap();
-        let end = end_regex.captures_iter(&value).next().unwrap()[1].to_string();
+        let expire_at = end_regex.captures_iter(&value).next().unwrap()[1].to_string();
         let mac_address = mac_address_regex
             .captures_iter(&value).next().unwrap()[1].to_string();
-        let host_name = host_regex
+        let hostname = host_regex
             .captures_iter(&value).next().map(|cap| cap[1].to_string());
         Ok(Self {
             mac_address,
-            host_name,
-            ipv4_address,
-            end,
+            hostname,
+            ip_address,
+            expire_at,
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+enum NdpCacheState {
+    NoState,
+    WaitDelete,
+    Incomplete,
+    Reachable,
+    Stale,
+    Delay,
+    Probe,
+    Unknown,
+}
+
+impl ToString for NdpCacheState {
+    fn to_string(&self) -> String {
+        match self {
+            Self::NoState => "No State",
+            Self::WaitDelete => "Wait Delete",
+            Self::Incomplete => "Incomplete",
+            Self::Reachable => "Reachable",
+            Self::Stale => "Stale",
+            Self::Delay => "Delay",
+            Self::Probe => "Probe",
+            Self::Unknown => "Unknown",
+        }.to_string()
+    }
+}
+
+impl FromStr for NdpCacheState {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "N" | "No State" => Self::NoState,
+            "W" | "Wait Delete" => Self::WaitDelete,
+            "I" | "Incomplete" => Self::Incomplete,
+            "R" | "Reachable" => Self::Reachable,
+            "S" | "Stale" => Self::Stale,
+            "D" | "Delay" => Self::Delay,
+            "P" | "Probe" => Self::Probe,
+            "?" | "Unknown" => Self::Unknown,
+            _ => unreachable!()
         })
     }
 }
@@ -144,20 +189,27 @@ impl FromStr for DhcpLease {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct NdpEntry {
     mac_address: String,
-    ipv6_address: String,
+    ip_address: String,
+    cache_state: NdpCacheState,
 }
 
 impl FromStr for NdpEntry {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Format:
+        //   Neighbor Linklayer-Address Netif Expire S Flags
+
         let regex = Regex::new(r"([^ ]+)").unwrap();
         let mut matches = regex.captures_iter(s);
-        let ipv6_address = matches.next().unwrap()[1].to_string();
+        let ip_address = matches.next().unwrap()[1].to_string();
         let mac_address = matches.next().unwrap()[1].to_string();
+        let cache_state =
+            NdpCacheState::from_str(&matches.skip(2).next().unwrap()[1]).unwrap();
         Ok(NdpEntry {
-            ipv6_address,
+            ip_address,
             mac_address,
+            cache_state,
         })
     }
 }

@@ -15,17 +15,19 @@ $ curl 192.168.0.1/api/status
       {
         "mac_address": "aa:bb:cc:dd:ee:ff",
         "ipv6_address": "global address"
+        "cache_state": "Reachable"
       },
       {
         "mac_address": "aa:bb:cc:dd:ee:ff",
-        "ipv6_address": "link-local address%interface"
+        "ip_address": "link-local address%interface"
+        "cache_state": "Reachable"
       }
     ],
     "dhcp_lease": { # nullable
       "mac_address": "aa:bb:cc:dd:ee:ff",
-      "ipv4_address": "192.168.0.29", # address
-      "end": "2021/02/06 11:17:27", # lease end
-      "host_name": null # hostname string, nullable
+      "ip4_address": "192.168.0.29", # address
+      "expire_at": "2021/02/06 11:17:27", # lease end
+      "hostname": null # hostname string, nullable
     }
   },
   "mac address 2": {
