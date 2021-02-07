@@ -6,7 +6,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use actix_web::{App, get, HttpResponse, HttpServer, Responder};
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, Local, DateTime, TimeZone};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -108,8 +108,8 @@ struct DhcpLease {
 
 impl DhcpLease {
     fn is_available(&self) -> bool {
-        let expire_at = NaiveDateTime::parse_from_str(&self.expire_at, "%Y/%m/%d %H:%M:%S").unwrap();
-        expire_at.timestamp() > Utc::now().timestamp()
+        let expire_at = DateTime::parse_from_rfc3339(&self.expire_at).unwrap();
+        expire_at > Local::now()
     }
 }
 
@@ -128,6 +128,8 @@ impl FromStr for DhcpLease {
                 &address_regex.captures_iter(&value).next().unwrap()[1]
             ).unwrap();
         let expire_at = end_regex.captures_iter(&value).next().unwrap()[1].to_string();
+        let expire_at = NaiveDateTime::parse_from_str(&expire_at, "%Y/%m/%d %H:%M:%S").unwrap();
+        let expire_at = Local.from_utc_datetime(&expire_at).to_rfc3339();
         let mac_address = mac_address_regex
             .captures_iter(&value).next().unwrap()[1].to_string();
         let hostname = host_regex
